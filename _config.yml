@@ -20,7 +20,7 @@ timezone: Asia/Seoul
 
 title: wslee94 # the main title
 
-tagline: Vires acquirit eundo. # it will display as the sub-title
+tagline: 알 것 같은 지식을 알고 있는 지식으로. # it will display as the sub-title
 
 description: >- # used by seo meta and the atom feed
 #  A minimal, responsive, and powerful Jekyll theme for presenting professional writing.

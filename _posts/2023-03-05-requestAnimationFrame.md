@@ -1,7 +1,7 @@
 ---
 title: 복잡한 인터렉션 적용하기 (requestAnimationFrame)
 date: 2023-03-05 14:00:00 +09:00
-categories: [Deveploment, motion]
+categories: [Deveploment, Motion]
 tags: [web, css, javascript, animation, motion] # TAG는 반드시 소문자로 이루어져야함!
 # image: /assets/img/avatar.png
 # pin: true

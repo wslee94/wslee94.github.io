@@ -239,9 +239,6 @@ function createChangeLogContent(classifiedCommits) {
 3. **커밋 이력 중 커밋 컨벤션 지키는 커밋만 필터링하고 분류한다.**
 4. **위 커밋 이력을 기반으로 파일 콘텐츠를 생성하고 커밋한다.**
 
-<br />
-<hr />
-
 # 실습
 
 ### release/v1.0.0 커밋 내역 확인 (대부분 지라 티켓 단위로 개발사항이 축적)
@@ -272,6 +269,189 @@ function createChangeLogContent(classifiedCommits) {
 
 ### 두 번의 배포가 진행된 후 master 브랜치 커밋 트리
 <img src="/assets/img/capture/gitlab-changelog-11.png" alt="master commit tree" /> <br />
+
+<br />
+<br />
+<br />
+<hr />
+
+# 개선사항
+**위에서는 배포 버전 별로 마크다운 파일이 생성되는데 하나의 CHNAGELOG.md 파일에 버전 별로 내용이 기록되도록 하는게 좋을 것 같다. (그 이유는 검색이 편해서!?)**
+```javascript
+const axios = require("axios");
+
+// 상수 정의
+const PROJECT_ID = process.argv[2];
+const GITLAB_API_TOKEN = process.argv[3];
+const BRANCH_NAME = process.argv[4];
+const BASE_URL = `https://gitlab.nexon.com/api/v4/projects/${PROJECT_ID}`;
+const VERSION = BRANCH_NAME.split("/")[1];
+const VERSION_ARR = BRANCH_NAME.split("/v")[1].split(".");
+const FILE_PATH = `CHANGELOG.md`;
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { "PRIVATE-TOKEN": GITLAB_API_TOKEN },
+});
+
+const regexVersion = /^v(\d+\.)?(\d+\.)?(\*|\d+)$/;
+const regexCommit =
+  /^(feat|fix|docs|style|refactor|perf|build|ci|chore|revert).*$/;
+const regexFeature = /^feat.*$/;
+const regexFix = /^fix.*$/;
+const regexStyle = /^style.*$/;
+const regexRefactor = /^refactor.*$/;
+
+// 메인 함수
+(async function () {
+  try {
+    // 최근에 배포한 태그를 가져온다. (e.g. v1.0.0)
+    const latestTag = await fetchLatestTag();
+
+    // 최근 배포한 태그의 태깅된 커밋 일시를 가져온다.
+    const sinceDate = latestTag ? latestTag.commit.created_at : undefined; 
+
+    // MR의 Source Branch인 release 브랜치에서 sinceDate 이후에 커밋된 이력을 가져온다.
+    const commits = await fetchCommits(sinceDate);
+
+    // 커밋 컨벤션이 적용된 커밋들만 필터링한다.
+    const filteredCommits = commits.filter(
+      (commit) => regexCommit.test(commit.title) 
+    );
+
+    // 커밋들을 기록하기 좋게 분류한다.
+    const classifiedCommits = classifyCommits(filteredCommits);
+
+    // 분류된 커밋을 기반으로 마크다운 형식의 컨텐츠를 생성한다.
+    const changeLogContent = makeChangeLogContent(classifiedCommits); 
+
+    // 원격 저장소에 CHANGELOG.md 파일을 조회한다.
+    const changeLogFile = await fetchChangeLog();
+
+    // 파일이 없으면 파일을 생성하기 위한 플래그 변수
+    const isCreateFile = !changeLogFile; 
+
+    const changeLogContents = isCreateFile
+      ? createChangeLogContent(changeLogContent)
+      : updateChangeLogContent(changeLogContent, changeLogFile);
+
+    const postChangeLogActions = isCreateFile
+      ? [
+          {
+            action: "create",
+            file_path: FILE_PATH,
+            content: changeLogContents,
+          },
+        ]
+      : [
+          {
+            action: "delete",
+            file_path: FILE_PATH,
+          },
+          {
+            action: "create",
+            file_path: FILE_PATH,
+            content: changeLogContents,
+          },
+        ];
+
+    // 파일을 커밋한다.
+    await postChangeLog(postChangeLogActions); 
+  } catch (error) {
+    console.error(error);
+  }
+})();
+
+// 가장 최근에 태깅한 버전 태그 가져오기, 태그명은 vX.X.X 규칙을 가지고 있어야함
+async function fetchLatestTag() { /* 전과 동일 */ }
+
+// relase/vX.X.X에서 최신 버전 태그 커밋의 커밋일 이후 모든 커밋이력 가져오기 (= 아직 배포하지 않은 커밋 이력들)
+async function fetchCommits(since) { /* 전과 동일 */ }
+
+// 원격 저장소에 CHANGELOG.md 파일 가져오기 (API가 변경됨)
+async function fetchChangeLog() {
+  try {
+    const res = await api.get(`/repository/files/${FILE_PATH}/raw`, {
+      params: { ref: "master" },
+    });
+    return res.data;
+  } catch (error) {
+    if (error.response.status === 404) {
+      return null;
+    } else {
+      throw error;
+    }
+  }
+}
+
+// 원격 저장소에 해당 버전의 change log 파일 생성
+async function postChangeLog(actions) { /* 전과 동일 */ }
+
+// 커밋 type 별 분류하기
+function classifyCommits(commits) { /* 전과 동일 */ }
+
+// chagelog 콘텐츠 생성하기
+function makeChangeLogContent(classifiedCommits) {
+  let content = `## [${VERSION}]\n\n`;
+  const prefixKeys = Object.keys(classifiedCommits);
+
+  for (const prefixKey of prefixKeys) {
+    const commits = classifiedCommits[prefixKey];
+    if (commits.length === 0) {
+      continue;
+    }
+
+    content = content.concat(`### ${prefixKey}\n`);
+    for (const commit of commits) {
+      content = content.concat(`- [${commit.title}](${commit.web_url})\n`);
+    }
+    content = content.concat(`\n\n`);
+  }
+
+  return content;
+}
+
+// chage log 파일 콘텐츠 생성하기, 마크다운 형식
+function createChangeLogContent(changeLogContent) {
+  return `# Change Log\n\n${changeLogContent}`;
+}
+
+// chage log 파일 콘텐츠 수정하기, 마크다운 형식
+function updateChangeLogContent(changeLogContent, changeLogFile) {
+  let result;
+  const [major, minor, patch] = VERSION_ARR;
+  const versionRegex = new RegExp(`## \\[v${major}\\.${minor}\\.${patch}\\]`);
+  const isExistVersion = versionRegex.test(changeLogFile);
+
+  if (!isExistVersion) {
+    const regex = new RegExp(`# Change Log\n\n`);
+    result = changeLogFile.replace(
+      regex,
+      `# Change Log\n\n${changeLogContent}`
+    );
+  } else {
+    /**
+     * ## [vX.X.X] 를 시작으로
+     * 개행이 연속적으로 세번 나오는 구간까지 정규식을 통해 검색한다.
+     * 검색된 구간을 새롭게 작성한 배포 내역으로 대체한다.
+     */
+    const regex = new RegExp(
+      `## \\[v${major}\\.${minor}\\.${patch}\\]((.|\\n)*?)(\\n\\n\\n)`
+    );
+    result = changeLogFile.replace(regex, changeLogContent);
+  }
+
+  return result;
+}
+```
+<img src="/assets/img/capture/gitlab-changelog-7.png" alt="check file" />
+
+음! 이 방법이 더 좋은 것 같다!
+
+<br />
+<br />
+<br />
+<hr />
 
 # 참고사항
 - 배포 후 태깅을 잘하자!

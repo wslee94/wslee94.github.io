@@ -84,7 +84,7 @@ const api = axios.create({
   headers: { "PRIVATE-TOKEN": GITLAB_API_TOKEN },
 });
 
-const regexVersion = /^v(\d+\.)?(\d+\.)?(\*|\d+)$/;
+const regexVersion = /^v(\d+\.)(\d+\.)(\d+)$/
 const regexCommit =
   /^(feat|fix|docs|style|refactor|perf|build|ci|chore|revert).*$/;
 const regexFeature = /^feat.*$/;
@@ -152,10 +152,19 @@ async function fetchLatestTag() {
 
 // relase/vX.X.X에서 최신 버전 태그 커밋의 커밋일 이후 모든 커밋이력 가져오기 (= 아직 배포하지 않은 커밋 이력들)
 async function fetchCommits(since) {
-  const res = await api.get(`/repository/commits?ref_name=${BRANCH_NAME}`, {
-    params: { since },
-  });
-  return res.data;
+  let result = []
+  async function f(page = 1) {
+    const res = await api.get(`/repository/commits?ref_name=${BRANCH_NAME}`, {
+      params: { since, page }
+    })
+    if (res.data.length === 0) return
+
+    result = [...result, ...res.data]
+    await f(page + 1)
+  }
+  await f()
+
+  return result
 }
 
 // 원격 저장소에 이미 해당 버전의 change log 파일이 있는 지 여부 가져오기
@@ -294,7 +303,7 @@ const api = axios.create({
   headers: { "PRIVATE-TOKEN": GITLAB_API_TOKEN },
 });
 
-const regexVersion = /^v(\d+\.)?(\d+\.)?(\*|\d+)$/;
+const regexVersion = /^v(\d+\.)(\d+\.)(\d+)$/
 const regexCommit =
   /^(feat|fix|docs|style|refactor|perf|build|ci|chore|revert).*$/;
 const regexFeature = /^feat.*$/;

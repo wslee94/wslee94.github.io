@@ -1,7 +1,7 @@
 ---
 title: 타임존 다루기 (feat. UTC offset, Timezone)
 date: 2024-08-13 23:20:00 +09:00
-categories: [Deveploment, timezone]
+categories: [Deveploment, Timezone]
 tags: [timezone, utc, global, summertime] # TAG는 반드시 소문자로 이루어져야함!
 # image: /assets/img/avatar.png
 # pin: true

@@ -1,7 +1,7 @@
 ---
 title: TS 다형성(Polymorphism) 적용해보기
 date: 2023-12-11 12:25:00 +09:00
-categories: [Deveploment, TS]
+categories: [Deveploment, Typescript]
 tags: [ts, oop, polymorphism] # TAG는 반드시 소문자로 이루어져야함!
 # image: /assets/img/avatar.png
 # pin: true
